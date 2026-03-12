@@ -3,7 +3,7 @@ const bcryptjs = require("bcryptjs");
 const z = require("zod");
 const jwt = require("jsonwebtoken");
 const { authMiddleware } = require("../middleware/middleware.js");
-const { User } = require("../models/users");
+const { User, Account } = require("../models/users");
 
 const router = express.Router();
 
@@ -14,7 +14,7 @@ const signupBody = z.object({
   password: z.string(),
 });
 const signinBody = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string(),
 });
 
@@ -29,7 +29,7 @@ router.post("/signup", async (req, res, next) => {
 
     if (!success) {
       return res.status(411).json({
-        message: "Email already taken / incorrect inputs",
+        message: "invalid inputs",
       });
     }
 
@@ -41,6 +41,7 @@ router.post("/signup", async (req, res, next) => {
         message: "email already taken ",
       });
     }
+
     const hashedPassword = await bcryptjs.hash(req.body.password, 10);
 
     const user = await User.create({
@@ -48,6 +49,13 @@ router.post("/signup", async (req, res, next) => {
       password: hashedPassword,
       firstName: req.body.firstName,
       lastName: req.body.lastName,
+    });
+
+    const userId = user._id;
+
+    await Account.create({
+      userId,
+      balance: 1 + Math.random() * 10000,
     });
 
     res.status(200).json({
@@ -94,7 +102,7 @@ router.post("/signin", async (req, res, next) => {
     );
 
     res.status(200).json({
-      token: token,
+      token,
     });
   } catch (error) {
     console.log(error.message);
@@ -125,7 +133,7 @@ router.get("/bulk", async (req, res, next) => {
   const filter = req.query.filter || "";
 
   const users = await User.find({
-    $or: [  
+    $or: [
       {
         firstName: {
           $regex: filter,
